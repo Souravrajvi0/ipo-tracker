@@ -75,6 +75,14 @@ export interface IpoData {
   // AI Analysis
   aiSummary?: string;
   aiRecommendation?: "SUBSCRIBE" | "AVOID" | "NEUTRAL";
+  
+  // External IDs
+  investorGainId?: number;
+  
+  // Activity Dates
+  basisOfAllotmentDate?: string;
+  refundsInitiationDate?: string;
+  creditToDematDate?: string;
 }
 
 export interface SubscriptionData {
@@ -383,23 +391,23 @@ export function parseDecimal(text: string | number | undefined | null): number |
 
 export function parseFinancialMetrics(data: any): Partial<IpoData> {
   return {
-    revenueGrowth: parsePercentage(data.revenueGrowth),
-    ebitdaMargin: parsePercentage(data.ebitdaMargin),
-    patMargin: parsePercentage(data.patMargin),
-    roe: parsePercentage(data.roe),
-    roce: parsePercentage(data.roce),
-    debtToEquity: parseDecimal(data.debtToEquity),
-    peRatio: parseDecimal(data.peRatio),
-    pbRatio: parseDecimal(data.pbRatio),
-    sectorPeMedian: parseDecimal(data.sectorPeMedian),
-    gmp: typeof data.gmp === "number" ? data.gmp : (data.gmp ? parseDecimal(data.gmp) : null),
-    gmpPercent: parsePercentage(data.gmpPercent),
-    subscriptionQib: parseDecimal(data.subscriptionQib),
-    subscriptionNii: parseDecimal(data.subscriptionNii),
-    subscriptionHni: parseDecimal(data.subscriptionHni),
-    subscriptionRetail: parseDecimal(data.subscriptionRetail),
-    promoterHolding: parsePercentage(data.promoterHolding),
-    postIpoPromoterHolding: parsePercentage(data.postIpoPromoterHolding),
+    revenueGrowth: parsePercentage(data.revenueGrowth) ?? undefined,
+    ebitdaMargin: parsePercentage(data.ebitdaMargin) ?? undefined,
+    patMargin: parsePercentage(data.patMargin) ?? undefined,
+    roe: parsePercentage(data.roe) ?? undefined,
+    roce: parsePercentage(data.roce) ?? undefined,
+    debtToEquity: parseDecimal(data.debtToEquity) ?? undefined,
+    peRatio: parseDecimal(data.peRatio) ?? undefined,
+    pbRatio: parseDecimal(data.pbRatio) ?? undefined,
+    sectorPeMedian: parseDecimal(data.sectorPeMedian) ?? undefined,
+    gmp: typeof data.gmp === "number" ? data.gmp : (data.gmp ? parseDecimal(data.gmp) ?? undefined : undefined),
+    gmpPercent: parsePercentage(data.gmpPercent) ?? undefined,
+    subscriptionQib: parseDecimal(data.subscriptionQib) ?? undefined,
+    subscriptionNii: parseDecimal(data.subscriptionNii) ?? undefined,
+    subscriptionHni: parseDecimal(data.subscriptionHni) ?? undefined,
+    subscriptionRetail: parseDecimal(data.subscriptionRetail) ?? undefined,
+    promoterHolding: parsePercentage(data.promoterHolding) ?? undefined,
+    postIpoPromoterHolding: parsePercentage(data.postIpoPromoterHolding) ?? undefined,
   };
 }
 
@@ -475,8 +483,8 @@ export function generateRiskAssessment(data: Partial<IpoData>): Partial<IpoData>
     "conservative";
 
   return {
-    redFlags: redFlags.length > 0 ? JSON.stringify(redFlags) : undefined,
-    pros: pros.length > 0 ? JSON.stringify(pros) : undefined,
+    redFlags: redFlags.length > 0 ? redFlags : undefined,
+    pros: pros.length > 0 ? pros : undefined,
     riskLevel: redFlags.length > 0 ? riskLevel : undefined,
   };
 }

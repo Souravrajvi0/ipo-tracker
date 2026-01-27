@@ -45,6 +45,15 @@ export const ipos = sqliteTable("ipos", {
   subscriptionQib: real("subscription_qib"), // QIB subscription times
   subscriptionHni: real("subscription_hni"), // HNI subscription times
   subscriptionRetail: real("subscription_retail"), // Retail subscription times
+  subscriptionNii: real("subscription_nii"), // NII subscription times
+  
+  // External IDs for data sources
+  investorGainId: integer("investor_gain_id"), // InvestorGain IPO ID for fetching details
+  
+  // IPO Activity Dates
+  basisOfAllotmentDate: text("basis_of_allotment_date"),
+  refundsInitiationDate: text("refunds_initiation_date"),
+  creditToDematDate: text("credit_to_demat_date"),
   
   // Promoter Info
   promoterHolding: real("promoter_holding"), // Pre-IPO promoter holding %

@@ -37,6 +37,7 @@ import {
   getTierLimits
 } from "./services/api-key-service";
 import { scraperLogger } from "./services/scraper-logger";
+import { investorGainScraper } from "./services/scrapers/investorgain";
 
 export async function registerRoutes(
   httpServer: Server, // Accept httpServer as parameter
@@ -778,12 +779,106 @@ export async function registerRoutes(
     }
   });
 
-  // GMP History Routes
+  app.post("/api/admin/sync-investorgain-ids", requireAuth, async (req, res) => {
+    try {
+      const iposResult = await investorGainScraper.getIpos();
+      if (!iposResult.success || iposResult.data.length === 0) {
+        return res.json({ success: false, message: "No InvestorGain IPOs fetched" });
+      }
+
+      const dbIpos = await storage.getIpos();
+      let updatedCount = 0;
+
+      for (const dbIpo of dbIpos) {
+        if (dbIpo.investorGainId) continue;
+
+        const normalizedDbName = dbIpo.companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const match = iposResult.data.find(igIpo => {
+          const normalizedIgName = igIpo.companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
+          return normalizedDbName.includes(normalizedIgName) || 
+                 normalizedIgName.includes(normalizedDbName) ||
+                 normalizedDbName === normalizedIgName;
+        });
+
+        if (match && match.investorGainId) {
+          await storage.updateIpo(dbIpo.id, {
+            investorGainId: match.investorGainId,
+            gmp: match.gmp ?? dbIpo.gmp,
+            basisOfAllotmentDate: match.basisOfAllotmentDate ?? dbIpo.basisOfAllotmentDate,
+          });
+          updatedCount++;
+        }
+      }
+
+      res.json({ success: true, updated: updatedCount, totalInvestorGain: iposResult.data.length });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to sync InvestorGain IDs" });
+    }
+  });
+
+  // GMP History Routes (from database)
   app.get("/api/ipos/:id/gmp-history", async (req, res) => {
     const ipoId = Number(req.params.id);
     const days = Number(req.query.days) || 7;
     const history = await storage.getGmpHistory(ipoId, days);
     res.json(history);
+  });
+
+  // Live GMP History from InvestorGain API
+  app.get("/api/ipos/:id/gmp-history/live", async (req, res) => {
+    try {
+      const ipoId = Number(req.params.id);
+      const ipo = await storage.getIpo(ipoId);
+      
+      if (!ipo || !ipo.investorGainId) {
+        return res.json([]);
+      }
+      
+      const history = await investorGainScraper.getGmpHistory(ipo.investorGainId);
+      res.json(history);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch GMP history" });
+    }
+  });
+
+  // Live Subscription Status from InvestorGain API
+  app.get("/api/ipos/:id/subscription/live", async (req, res) => {
+    try {
+      const ipoId = Number(req.params.id);
+      const ipo = await storage.getIpo(ipoId);
+      
+      if (!ipo || !ipo.investorGainId) {
+        return res.json(null);
+      }
+      
+      const subscription = await investorGainScraper.getSubscriptionDetails(ipo.investorGainId);
+      res.json(subscription);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch subscription data" });
+    }
+  });
+
+  // IPO Activity Dates
+  app.get("/api/ipos/:id/activity-dates", async (req, res) => {
+    try {
+      const ipoId = Number(req.params.id);
+      const ipo = await storage.getIpo(ipoId);
+      
+      if (!ipo) {
+        return res.status(404).json({ error: "IPO not found" });
+      }
+      
+      res.json({
+        biddingStartDate: ipo.expectedDate,
+        biddingEndDate: null,
+        basisOfAllotmentDate: ipo.basisOfAllotmentDate,
+        refundsInitiationDate: ipo.refundsInitiationDate,
+        creditToDematDate: ipo.creditToDematDate,
+        listingDate: null,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch activity dates" });
+    }
   });
 
   // Peer Comparison Routes

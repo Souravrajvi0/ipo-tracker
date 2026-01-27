@@ -2,9 +2,11 @@ import { useState, useMemo } from "react";
 import { useIpos } from "@/hooks/use-ipos";
 import { IpoCard } from "@/components/IpoCard";
 import { IpoTable } from "@/components/IpoTable";
+import { IpoDetailModal } from "@/components/IpoDetailModal";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Search, Loader2, LayoutGrid, Table, TrendingUp, Clock, CheckCircle2, ArrowUpRight } from "lucide-react";
+import type { Ipo } from "@shared/schema";
 
 type ViewMode = "cards" | "table";
 
@@ -12,6 +14,7 @@ export default function Dashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [search, setSearch] = useState("");
   const [showSme, setShowSme] = useState(true);
+  const [selectedIpo, setSelectedIpo] = useState<Ipo | null>(null);
 
   const { data: ipos, isLoading } = useIpos();
 
@@ -151,7 +154,7 @@ export default function Dashboard() {
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {openIpos.map((ipo) => (
-                  <IpoCard key={ipo.id} ipo={ipo} />
+                  <IpoCard key={ipo.id} ipo={ipo} onClick={() => setSelectedIpo(ipo)} />
                 ))}
               </div>
             </section>
@@ -170,7 +173,7 @@ export default function Dashboard() {
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {upcomingIpos.map((ipo) => (
-                  <IpoCard key={ipo.id} ipo={ipo} />
+                  <IpoCard key={ipo.id} ipo={ipo} onClick={() => setSelectedIpo(ipo)} />
                 ))}
               </div>
             </section>
@@ -189,7 +192,7 @@ export default function Dashboard() {
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {listedIpos.map((ipo) => (
-                  <IpoCard key={ipo.id} ipo={ipo} />
+                  <IpoCard key={ipo.id} ipo={ipo} onClick={() => setSelectedIpo(ipo)} />
                 ))}
               </div>
             </section>
@@ -205,6 +208,14 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+      )}
+
+      {selectedIpo && (
+        <IpoDetailModal
+          ipo={selectedIpo}
+          open={!!selectedIpo}
+          onClose={() => setSelectedIpo(null)}
+        />
       )}
     </div>
   );

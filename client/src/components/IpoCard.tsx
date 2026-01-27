@@ -10,6 +10,7 @@ import { Link } from "wouter";
 interface IpoCardProps {
   ipo: Ipo;
   compact?: boolean;
+  onClick?: () => void;
 }
 
 function ScoreDisplay({ score, size = "md" }: { score: number | null; size?: "sm" | "md" }) {
@@ -70,7 +71,7 @@ function GmpBadge({ gmp }: { gmp: number | null }) {
   );
 }
 
-export function IpoCard({ ipo, compact = false }: IpoCardProps) {
+export function IpoCard({ ipo, compact = false, onClick }: IpoCardProps) {
   const { mutate: addToWatchlist, isPending } = useAddToWatchlist();
   const { data: watchlist } = useWatchlist();
   const { toast } = useToast();
@@ -135,8 +136,9 @@ export function IpoCard({ ipo, compact = false }: IpoCardProps) {
 
   return (
     <div 
-      className="group bg-card rounded-lg border border-border p-5 flex flex-col hover:shadow-md transition-all"
+      className="group bg-card rounded-lg border border-border p-5 flex flex-col hover:shadow-md transition-all cursor-pointer"
       data-testid={`card-ipo-${ipo.id}`}
+      onClick={onClick}
     >
       <div className="flex justify-between items-start gap-3 mb-4">
         <div className="space-y-1 min-w-0 flex-1">

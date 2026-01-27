@@ -88,3 +88,7 @@ The database schema includes core tables for `users`, `sessions`, `ipos`, `watch
 - **January 2026**: Switched from PostgreSQL to SQLite for simpler local development
 - **January 2026**: Updated Vite configuration with `allowedHosts: true` for Replit proxy compatibility
 - **January 2026**: Integrated NSETools library into `server/services/scrapers/nse-client/` (removed separate `nsetools-master/` folder)
+- **January 2026**: Enhanced InvestorGain scraper to use JSON API endpoints for IPO data, GMP history, and live subscription details
+- **January 2026**: Added IPO detail modal with live subscription status (QIB, NII, RII, Total), IPO activity timeline, and GMP trend chart
+- **January 2026**: Added database fields for investorGainId, subscriptionNii, basisOfAllotmentDate, refundsInitiationDate, creditToDematDate
+- **January 2026**: Added API endpoints for live InvestorGain data: /api/ipos/:id/gmp-history/live, /api/ipos/:id/subscription/live, /api/ipos/:id/activity-dates

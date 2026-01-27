@@ -43,12 +43,13 @@ export class ScraperAggregator {
     console.log(`[Aggregator] ${message}`);
   }
 
-  async getIpos(sources: string[] = ["nsetools", "groww", "chittorgarh"]): Promise<AggregatorResult<AggregatedIpoData>> {
+  async getIpos(sources: string[] = ["investorgain", "nsetools", "groww", "chittorgarh"]): Promise<AggregatorResult<AggregatedIpoData>> {
     this.log("Fetching IPOs from multiple sources...");
     const results: ScraperResult<IpoData>[] = [];
 
     const tasks: Promise<ScraperResult<IpoData>>[] = [];
 
+    if (sources.includes("investorgain")) tasks.push(investorGainScraper.getIpos());
     if (sources.includes("nsetools")) tasks.push(nseToolsScraper.fetchIpos());
     if (sources.includes("groww")) tasks.push(growwScraper.getIpos());
     if (sources.includes("chittorgarh")) tasks.push(chittorgarhScraper.getIpos());
@@ -135,6 +136,12 @@ export class ScraperAggregator {
       issueSizeCrores: existing.issueSizeCrores ?? incoming.issueSizeCrores,
       status: existing.status !== "upcoming" ? existing.status : incoming.status,
       ipoType: existing.ipoType,
+      gmp: existing.gmp ?? incoming.gmp,
+      gmpPercent: existing.gmpPercent ?? incoming.gmpPercent,
+      investorGainId: existing.investorGainId ?? incoming.investorGainId,
+      basisOfAllotmentDate: existing.basisOfAllotmentDate ?? incoming.basisOfAllotmentDate,
+      refundsInitiationDate: existing.refundsInitiationDate ?? incoming.refundsInitiationDate,
+      creditToDematDate: existing.creditToDematDate ?? incoming.creditToDematDate,
     };
   }
 
