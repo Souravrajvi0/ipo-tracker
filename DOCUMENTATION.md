@@ -7,8 +7,8 @@
 3. [How IPO Scoring Works](#how-ipo-scoring-works)
 4. [User Guide](#user-guide)
 5. [Technical Architecture](#technical-architecture)
-6. [API Reference](#api-reference)
-7. [Data Sources](#data-sources)
+6. [Data Scraping System](#data-scraping-system)
+7. [API Reference](#api-reference)
 8. [AI Analysis](#ai-analysis)
 9. [Email Alerts](#email-alerts)
 10. [Admin Panel](#admin-panel)
@@ -197,7 +197,6 @@ ipo-analyzer/
 │       ├── components/        # Reusable UI components
 │       │   ├── ui/           # shadcn/ui components
 │       │   ├── IpoCard.tsx   # IPO card component
-│       │   ├── ScoreRing.tsx # Score visualization
 │       │   └── ...
 │       ├── pages/            # Route page components
 │       │   ├── Dashboard.tsx # Main IPO listing
@@ -213,8 +212,17 @@ ipo-analyzer/
 │   ├── index.ts              # Server entry point
 │   ├── routes.ts             # API route definitions
 │   ├── storage.ts            # Database operations
+│   ├── db.ts                 # SQLite database connection
 │   ├── services/
-│   │   ├── scraper.ts        # Web scraping service
+│   │   ├── scraper.ts        # Main unified scraper
+│   │   ├── scrapers/         # Modular scraper system
+│   │   │   ├── aggregator.ts # Multi-source data aggregator
+│   │   │   ├── base.ts       # Base scraper class
+│   │   │   ├── nsetools.ts   # NSETools integration
+│   │   │   ├── chittorgarh.ts # Chittorgarh scraper
+│   │   │   ├── groww.ts      # Groww scraper
+│   │   │   ├── investorgain.ts # InvestorGain scraper
+│   │   │   └── nse.ts        # Direct NSE scraper
 │   │   ├── scoring.ts        # IPO scoring engine
 │   │   ├── ai-analysis.ts    # AI analysis service
 │   │   └── email.ts          # Email notification service
@@ -222,26 +230,245 @@ ipo-analyzer/
 │
 ├── shared/                    # Shared types and schemas
 │   ├── schema.ts             # Database schema (Drizzle)
-│   ├── routes.ts             # API contracts
 │   └── models/               # Domain models
 │
-└── migrations/               # Database migrations
+├── nsetools-master/          # NSETools JavaScript library
+│   └── nsetools-js/
+│       └── src/
+│           ├── nse.js        # NSE API client
+│           ├── session.js    # HTTP session manager
+│           └── urls.js       # NSE API endpoints
+│
+└── data/
+    └── local.db              # SQLite database file
 ```
 
 ### Data Flow
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Chittorgarh   │────▶│    Scraper      │────▶│    Database     │
-│   (Data Source) │     │    Service      │     │    (SQLite)     │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                                                        │
-                                                        ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│    Frontend     │◀────│    Express      │◀────│    Storage      │
-│    (React)      │────▶│    API          │────▶│    Layer        │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         DATA SOURCES                                 │
+├─────────────────┬─────────────────┬─────────────────┬───────────────┤
+│   NSETools      │   Chittorgarh   │     Groww       │ InvestorGain  │
+│   (Official     │   (Live subs,   │   (IPO calendar │  (Live bidding│
+│    NSE APIs)    │    GMP data)    │    & pricing)   │    data)      │
+└────────┬────────┴────────┬────────┴────────┬────────┴───────┬───────┘
+         │                 │                 │                │
+         └─────────────────┴─────────────────┴────────────────┘
+                                    │
+                                    ▼
+                    ┌───────────────────────────────┐
+                    │       SCRAPER AGGREGATOR      │
+                    │  - Merges data from sources   │
+                    │  - Assigns confidence levels  │
+                    │  - Detects GMP trends         │
+                    └───────────────────────────────┘
+                                    │
+                                    ▼
+                    ┌───────────────────────────────┐
+                    │        SCORING ENGINE         │
+                    │  - Calculates scores          │
+                    │  - Detects red flags          │
+                    │  - Assigns risk levels        │
+                    └───────────────────────────────┘
+                                    │
+                                    ▼
+                    ┌───────────────────────────────┐
+                    │      DATABASE (SQLite)        │
+                    │      ./data/local.db          │
+                    └───────────────────────────────┘
+                                    │
+                                    ▼
+                    ┌───────────────────────────────┐
+                    │         EXPRESS API           │
+                    │       /api/ipos, etc.         │
+                    └───────────────────────────────┘
+                                    │
+                                    ▼
+                    ┌───────────────────────────────┐
+                    │      REACT FRONTEND           │
+                    │  Dashboard, IPO Details, etc. │
+                    └───────────────────────────────┘
 ```
+
+---
+
+## Data Scraping System
+
+The IPO Analyzer uses a sophisticated multi-source data scraping system to gather comprehensive IPO data.
+
+### Architecture Overview
+
+The scraping system follows a modular architecture with three main components:
+
+1. **Individual Scrapers** - Specialized modules for each data source
+2. **Aggregator** - Merges data from multiple sources and assigns confidence
+3. **Scoring Engine** - Calculates scores and risk assessments
+
+### Data Sources
+
+#### 1. NSETools (Primary Source)
+
+**Location:** `nsetools-master/nsetools-js/`
+
+NSETools is a JavaScript library that connects to official NSE (National Stock Exchange) APIs. It serves as the primary and most reliable data source.
+
+**What it provides:**
+- Upcoming IPO calendar
+- Current (active bidding) IPOs
+- Stock quotes and market data
+- Official NSE endpoints
+
+**How it works:**
+```javascript
+import { Nse } from "./nsetools-master/nsetools-js/src/index.js";
+const nse = new Nse();
+
+// Fetch upcoming IPOs
+const upcomingIpos = await nse.getUpcomingIpos();
+
+// Fetch current/active IPOs
+const currentIpos = await nse.getCurrentIpos();
+```
+
+**Key Files:**
+- `nsetools-master/nsetools-js/src/nse.js` - Main NSE API client
+- `nsetools-master/nsetools-js/src/session.js` - HTTP session manager with cookies
+- `nsetools-master/nsetools-js/src/urls.js` - NSE API endpoint URLs
+
+#### 2. Chittorgarh Scraper
+
+**Location:** `server/services/scrapers/chittorgarh.ts`
+
+Scrapes data from Chittorgarh.com, a popular IPO information portal.
+
+**What it provides:**
+- Live subscription status (QIB, HNI, Retail percentages)
+- Grey Market Premium (GMP) data
+- IPO listing details and dates
+
+**Endpoints scraped:**
+- `/report/ipo-subscription-status-live-bidding-data-bse-nse/` - Live subscription
+- `/report/ipo-grey-market-premium-gmp-india/` - GMP data
+- `/report/mainboard-ipo-list-in-india-702/` - IPO listings
+
+#### 3. Groww Scraper
+
+**Location:** `server/services/scrapers/groww.ts`
+
+Fetches data from Groww's IPO section (both API and HTML fallback).
+
+**What it provides:**
+- IPO calendar and dates
+- Price bands
+- Issue size and lot size
+- IPO status
+
+**Methods:**
+1. **API Method** (preferred): `https://groww.in/v1/api/stocks_ipo/v1/ipo`
+2. **HTML Fallback**: Scrapes `https://groww.in/ipo` if API fails
+
+#### 4. InvestorGain Scraper
+
+**Location:** `server/services/scrapers/investorgain.ts`
+
+Scrapes live bidding data from InvestorGain.com.
+
+**What it provides:**
+- Real-time subscription data
+- QIB/NII/Retail category breakdown
+- Live bidding statistics
+
+#### 5. Direct NSE Scraper
+
+**Location:** `server/services/scrapers/nse.ts`
+
+Direct scraping of NSE website as an additional source.
+
+### Aggregator System
+
+**Location:** `server/services/scrapers/aggregator.ts`
+
+The aggregator combines data from all sources and provides:
+
+**Features:**
+1. **Multi-source merging** - Combines IPO data from all available sources
+2. **Confidence scoring** - Assigns high/medium/low confidence based on source count
+3. **GMP trend detection** - Identifies rising/falling/stable GMP patterns
+4. **Conflict resolution** - Prioritizes more complete data when sources conflict
+
+**Confidence Levels:**
+| Level | Criteria |
+|-------|----------|
+| High | Data confirmed by 2+ sources |
+| Medium | Data from 1 source when 2+ sources were queried |
+| Low | Single source, limited corroboration |
+
+**Usage:**
+```javascript
+import { scraperAggregator } from "./scrapers/aggregator";
+
+// Get aggregated IPO data
+const ipoResult = await scraperAggregator.getIpos(["nsetools", "groww", "chittorgarh"]);
+
+// Get aggregated subscription data
+const subResult = await scraperAggregator.getSubscriptions();
+
+// Get aggregated GMP data
+const gmpResult = await scraperAggregator.getGmp();
+
+// Test all connections
+const connectionTests = await scraperAggregator.testAllConnections();
+```
+
+### Main Scraper Module
+
+**Location:** `server/services/scraper.ts`
+
+The main scraper module provides a unified interface that:
+
+1. **Imports NSETools** - Uses NSETools as the primary data source
+2. **Scrapes enrichment sources** - Adds subscription, GMP, and additional data
+3. **Merges data** - Consolidates all sources into a single dataset
+4. **Applies scoring** - Calculates fundamentals, valuation, and governance scores
+
+**Key Functions:**
+- `scrapeMainboardIPOs()` - Fetches and merges IPO data from all sources
+- `scrapeGmpData()` - Gets Grey Market Premium data
+- `scrapeChittorgarhSubscription()` - Gets live subscription status
+- `scrapeInvestorGain()` - Gets bidding data
+
+### Web Scraping Techniques
+
+The scrapers use:
+
+1. **Axios** - HTTP client for fetching pages
+2. **Cheerio** - jQuery-like HTML parsing for server-side
+3. **Custom parsers** - Date parsing, number extraction, status detection
+
+**Example scraping pattern:**
+```javascript
+import axios from "axios";
+import * as cheerio from "cheerio";
+
+async function scrapePage(url) {
+  const html = await axios.get(url, { headers: { "User-Agent": "..." } });
+  const $ = cheerio.load(html.data);
+  
+  $("table tbody tr").each((_, row) => {
+    const companyName = $(row).find("td").eq(0).text().trim();
+    // ... extract more data
+  });
+}
+```
+
+### Data Synchronization
+
+Data sync is triggered through the Admin panel:
+
+1. **Test Connection** - Verifies all scrapers can reach their sources
+2. **Sync Data** - Fetches from all sources, merges, scores, and stores
+3. **Upsert Logic** - Updates existing IPOs, inserts new ones
 
 ---
 
@@ -293,15 +520,12 @@ ipo-analyzer/
   "companyName": "Example Corp Limited",
   "symbol": "EXAMPLE",
   "status": "open",
-  "openDate": "2026-01-20",
-  "closeDate": "2026-01-22",
-  "listingDate": "2026-01-27",
-  "priceMin": 100,
-  "priceMax": 105,
-  "issueSize": 500,
+  "expectedDate": "2026-01-20",
+  "priceRange": "₹100 - ₹105",
+  "issueSize": "500 Cr",
   "lotSize": 140,
+  "sector": "Technology",
   "gmp": 25,
-  "gmpPercentage": 23.8,
   "overallScore": 7.5,
   "fundamentalsScore": 8.0,
   "valuationScore": 7.0,
@@ -312,40 +536,6 @@ ipo-analyzer/
   "aiRecommendation": "Consider for moderate risk..."
 }
 ```
-
----
-
-## Data Sources
-
-### Primary Source: Chittorgarh IPO Dashboard
-
-The application scrapes data from Chittorgarh.com, a popular IPO information portal in India. Data collected includes:
-
-| Data Point | Description |
-|------------|-------------|
-| Company Name | Full legal name of the company |
-| Symbol | Stock symbol/ticker |
-| IPO Dates | Open, close, and listing dates |
-| Price Band | Minimum and maximum issue price |
-| Issue Size | Total offering amount in crores |
-| Lot Size | Minimum shares per application |
-| Issue Type | Book Built, Fixed Price, etc. |
-
-### Grey Market Premium (GMP)
-
-GMP data is fetched from the Chittorgarh GMP page and includes:
-
-- Current GMP (in rupees)
-- GMP Percentage (relative to upper price band)
-- Last updated timestamp
-
-### Data Synchronization
-
-Data is synchronized through the Admin panel:
-
-1. **Test Connection** - Verifies the scraper can reach data sources
-2. **Sync Data** - Fetches latest IPO data and updates database
-3. **Upsert Logic** - New IPOs are inserted, existing ones are updated by symbol
 
 ---
 
@@ -415,16 +605,6 @@ Email alerts require the Resend email service:
 | **GMP Change** | When Grey Market Premium changes significantly |
 | **Opening Date** | Reminder when an IPO opens for subscription |
 
-### Email Format
-
-Alerts are sent as formatted HTML emails containing:
-- IPO name and symbol
-- Current status and dates
-- Price band and lot size
-- GMP if available
-- Overall score and risk level
-- Link to view full details
-
 ---
 
 ## Admin Panel
@@ -445,24 +625,18 @@ Displays counts for:
 - Closed IPOs
 
 #### Test Connection
-Verifies that the scraper can:
-- Reach the Chittorgarh website
+Verifies that all scrapers can:
+- Reach their data sources (NSETools, Chittorgarh, Groww, InvestorGain)
 - Parse IPO data successfully
-- Return a sample of found IPOs
+- Return response times for each source
 
 #### Sync Data
 Triggers a full data synchronization:
-1. Fetches all current IPOs from source
-2. Fetches GMP data separately
-3. Merges GMP with IPO records
+1. Fetches all current IPOs from all sources
+2. Aggregates and merges data
+3. Fetches GMP data separately
 4. Computes scores for all IPOs
 5. Upserts data to database (insert or update)
-
-### Sync Best Practices
-
-- Run sync at least once daily during active IPO periods
-- Run sync after market hours for accurate GMP data
-- Check console for any scraping errors
 
 ---
 
@@ -529,6 +703,9 @@ Stores IPO data and computed scores.
 | lotSize | integer | Minimum lot size |
 | sector | text | Industry sector |
 | gmp | integer | Grey Market Premium |
+| subscriptionQib | real | QIB subscription times |
+| subscriptionHni | real | HNI subscription times |
+| subscriptionRetail | real | Retail subscription times |
 | overallScore | real | Computed overall score |
 | fundamentalsScore | real | Fundamentals component |
 | valuationScore | real | Valuation component |
@@ -544,37 +721,48 @@ Tracks user IPO watchlists.
 
 | Column | Type | Description |
 |--------|------|-------------|
-| id | serial | Primary key |
+| id | integer | Primary key |
 | userId | text | Foreign key to users |
 | ipoId | integer | Foreign key to ipos |
-| createdAt | timestamp | When added to watchlist |
+| createdAt | integer | When added to watchlist |
 
 #### alert_preferences
 Stores user alert settings.
 
 | Column | Type | Description |
 |--------|------|-------------|
-| id | serial | Primary key |
+| id | integer | Primary key |
 | userId | text | Foreign key to users |
-| emailEnabled | boolean | Email alerts enabled |
+| emailEnabled | integer | Email alerts enabled (boolean) |
 | email | text | Email address for alerts |
-| alertOnNewIpo | boolean | Alert on new IPOs |
-| alertOnGmpChange | boolean | Alert on GMP changes |
-| alertOnOpenDate | boolean | Alert on opening date |
-| alertOnWatchlistOnly | boolean | Limit to watchlist |
+| alertOnNewIpo | integer | Alert on new IPOs (boolean) |
+| alertOnGmpChange | integer | Alert on GMP changes (boolean) |
+| alertOnOpenDate | integer | Alert on opening date (boolean) |
+| alertOnWatchlistOnly | integer | Limit to watchlist (boolean) |
 
-#### alert_logs
-Records sent alerts for history.
+#### gmp_history
+Tracks GMP changes over time for trend analysis.
 
 | Column | Type | Description |
 |--------|------|-------------|
-| id | serial | Primary key |
-| userId | text | Foreign key to users |
+| id | integer | Primary key |
 | ipoId | integer | Foreign key to ipos |
-| alertType | text | Type of alert sent |
-| channel | text | Delivery channel (email) |
-| sentAt | timestamp | When alert was sent |
-| status | text | Delivery status |
+| gmp | integer | GMP value at that time |
+| gmpPercentage | real | GMP as percentage |
+| recordedAt | integer | Timestamp of recording |
+
+#### subscription_updates
+Tracks live subscription data over time.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | integer | Primary key |
+| ipoId | integer | Foreign key to ipos |
+| qibSubscription | real | QIB category subscription |
+| niiSubscription | real | NII/HNI category subscription |
+| retailSubscription | real | Retail category subscription |
+| totalSubscription | real | Overall subscription |
+| recordedAt | integer | Timestamp of recording |
 
 ---
 
@@ -588,7 +776,6 @@ Records sent alerts for history.
 ### Production Considerations
 
 - Ensure all required environment variables are set
-- Run database migrations before deploying
 - Test data sync functionality after deployment
 - Set up scheduled syncs if needed (currently manual)
 
@@ -606,9 +793,15 @@ After deployment, your app will be available at:
 
 #### Data not syncing
 1. Go to Admin panel
-2. Click "Test Connection" to verify scraper works
-3. Check browser console for error messages
-4. Verify network connectivity
+2. Click "Test Connection" to verify all scrapers work
+3. Check console for specific source errors
+4. Some sources may have rate limiting or temporary outages
+
+#### NSETools 403 errors
+The NSE website sometimes blocks automated requests. This is handled gracefully:
+- The app falls back to other data sources
+- Cached data continues to be served
+- Retry later when NSE is accessible
 
 #### AI analysis not working
 1. Check if API key is set in Secrets
@@ -627,27 +820,11 @@ After deployment, your app will be available at:
 
 ---
 
-## Contributing
+## Recent Changes
 
-This project is open for contributions. Areas for improvement:
-
-1. **Additional data sources** - Support for more IPO data providers
-2. **Enhanced scoring** - More sophisticated scoring algorithms
-3. **Historical analysis** - Track IPO performance post-listing
-4. **Mobile app** - React Native mobile application
-5. **Scheduled sync** - Automatic data synchronization
-
----
-
-## License
-
-This project is provided for educational and informational purposes. It is not financial advice. Use at your own risk.
-
----
-
-## Contact & Support
-
-For issues or suggestions, please open an issue in the project repository or contact the maintainers.
+- **January 2026**: Migrated project structure from subdirectory to root level
+- **January 2026**: Switched from PostgreSQL to SQLite for simpler local development
+- **January 2026**: Updated Vite configuration with `allowedHosts: true` for Replit proxy compatibility
 
 ---
 
