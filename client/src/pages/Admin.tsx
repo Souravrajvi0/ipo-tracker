@@ -71,6 +71,7 @@ interface ScraperLog {
 const DATA_SOURCES = [
   { id: 'chittorgarh', name: 'Chittorgarh IPO Dashboard', description: 'Main source for IPO listings, dates, and basic info', type: 'IPO Data' },
   { id: 'investorgain', name: 'InvestorGain', description: 'Live GMP data, subscription details, and activity dates', type: 'GMP & Subscription' },
+  { id: 'ipoalerts', name: 'IPO Alerts API', description: 'Premium IPO data with schedule, strengths, and risks (25/day limit)', type: 'Premium Data' },
   { id: 'groww', name: 'Groww', description: 'IPO calendar, subscription data, and listing info', type: 'Calendar & Subscription' },
   { id: 'nsetools', name: 'NSE Tools', description: 'Official NSE data for mainboard IPOs', type: 'Exchange Data' },
   { id: 'nse', name: 'NSE Direct', description: 'Direct NSE API for real-time data', type: 'Exchange Data' },

@@ -24,6 +24,7 @@ import {
   scrapeGrowwCalendar,
   isBiddingHours
 } from "./services/multi-source-scraper";
+import { ipoAlertsScraper } from "./services/scrapers/ipoalerts";
 import apiV1Router from "./routes/api-v1";
 import { registerScraperDebugRoutes } from "./routes/scraper-debug";
 import { 
@@ -610,6 +611,16 @@ export async function registerRoutes(
   app.delete("/api/scheduler/alerts", requireAuth, async (req, res) => {
     clearAlerts();
     res.json({ success: true, message: "Alerts cleared" });
+  });
+
+  app.get("/api/ipoalerts/usage", async (req, res) => {
+    const usage = ipoAlertsScraper.getUsageStats();
+    res.json({
+      ...usage,
+      canMakeRequest: ipoAlertsScraper.canMakeRequest(),
+      isWithinMarketHours: ipoAlertsScraper.isWithinMarketHours(),
+      scheduledFetchType: ipoAlertsScraper.getScheduledFetchType(),
+    });
   });
 
   // === Multi-Source Data Routes ===

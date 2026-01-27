@@ -2,7 +2,7 @@ import { db } from "../db";
 import { scraperLogs } from "@shared/schema";
 import { desc, eq, and, gte } from "drizzle-orm";
 
-export type ScraperSource = 'chittorgarh' | 'groww' | 'nse' | 'nsetools' | 'investorgain' | 'aggregator';
+export type ScraperSource = 'chittorgarh' | 'groww' | 'nse' | 'nsetools' | 'investorgain' | 'ipoalerts' | 'aggregator';
 export type ScraperOperation = 'ipos' | 'gmp' | 'subscription' | 'sync';
 export type ScraperStatus = 'success' | 'error' | 'timeout';
 
@@ -175,7 +175,7 @@ class ScraperLogger {
   }> {
     const stats = await this.getSourceStats(1);
     
-    const sources = ['chittorgarh', 'groww', 'nse', 'nsetools', 'investorgain'].map(name => {
+    const sources = ['chittorgarh', 'groww', 'nse', 'nsetools', 'investorgain', 'ipoalerts'].map(name => {
       const sourceStats = stats.find(s => s.source === name);
       
       if (!sourceStats || sourceStats.totalCalls === 0) {

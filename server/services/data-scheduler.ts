@@ -8,6 +8,7 @@ import {
   type AlertTrigger,
 } from "./multi-source-scraper";
 import { storage } from "../storage";
+import { ipoAlertsScraper } from "./scrapers/ipoalerts";
 
 interface SchedulerState {
   isRunning: boolean;
@@ -28,6 +29,61 @@ const state: SchedulerState = {
 };
 
 let pollInterval: NodeJS.Timeout | null = null;
+let ipoAlertsInterval: NodeJS.Timeout | null = null;
+let lastIpoAlertsFetchType: string | null = null;
+
+async function fetchFromIpoAlertsIfScheduled(): Promise<void> {
+  const fetchType = ipoAlertsScraper.getScheduledFetchType();
+  
+  if (!fetchType || fetchType === lastIpoAlertsFetchType) {
+    return;
+  }
+
+  if (!ipoAlertsScraper.canMakeRequest()) {
+    console.log(`[IPOAlerts] ⚠️ Daily limit reached, skipping scheduled fetch`);
+    return;
+  }
+
+  console.log(`[IPOAlerts] 📊 Scheduled fetch: ${fetchType} IPOs`);
+  lastIpoAlertsFetchType = fetchType;
+
+  try {
+    const result = await ipoAlertsScraper.getScheduledIpos();
+    
+    if (result.success && result.data.length > 0) {
+      console.log(`[IPOAlerts] ✅ Fetched ${result.data.length} ${fetchType} IPO(s)`);
+      
+      for (const ipoData of result.data) {
+        try {
+          const existingIpos = await storage.getIpos();
+          const existing = existingIpos.find(ipo => 
+            ipo.symbol === ipoData.symbol || 
+            ipo.companyName.toLowerCase().includes(ipoData.companyName.toLowerCase().slice(0, 10))
+          );
+
+          if (existing && existing.id) {
+            await storage.updateIpo(existing.id, {
+              priceRange: ipoData.priceRange !== "TBA" ? ipoData.priceRange : existing.priceRange,
+              lotSize: ipoData.lotSize ?? existing.lotSize,
+              status: ipoData.status,
+              basisOfAllotmentDate: ipoData.basisOfAllotmentDate ?? existing.basisOfAllotmentDate,
+              refundsInitiationDate: ipoData.refundsInitiationDate ?? existing.refundsInitiationDate,
+              creditToDematDate: ipoData.creditToDematDate ?? existing.creditToDematDate,
+            });
+            console.log(`[IPOAlerts] Updated: ${ipoData.companyName}`);
+          }
+        } catch (error) {
+          console.error(`[IPOAlerts] Failed to update ${ipoData.companyName}:`, error);
+        }
+      }
+    }
+    
+    const usage = ipoAlertsScraper.getUsageStats();
+    console.log(`[IPOAlerts] Usage: ${usage.used}/${usage.limit} (${usage.remaining} remaining)`);
+  } catch (error) {
+    console.error(`[IPOAlerts] Scheduled fetch failed:`, error);
+  }
+}
 
 async function pollDataSources(): Promise<{
   subscription: AggregatedSubscriptionData[];
@@ -40,6 +96,8 @@ async function pollDataSources(): Promise<{
   
   const isBidding = isBiddingHours();
   console.log(`📅 Bidding hours: ${isBidding ? "YES (9:15 AM - 5:30 PM IST)" : "NO"}`);
+  
+  fetchFromIpoAlertsIfScheduled().catch(err => console.error('[IPOAlerts] Error:', err));
   
   try {
     const [subscriptionData, gmpData] = await Promise.all([
