@@ -218,7 +218,12 @@ ipo-analyzer/
 │   │   ├── scrapers/         # Modular scraper system
 │   │   │   ├── aggregator.ts # Multi-source data aggregator
 │   │   │   ├── base.ts       # Base scraper class
-│   │   │   ├── nsetools.ts   # NSETools integration
+│   │   │   ├── nse-client/   # NSE API client (TypeScript)
+│   │   │   │   ├── nse.ts    # Main NSE API class
+│   │   │   │   ├── session.ts # HTTP session manager
+│   │   │   │   ├── urls.ts   # NSE API endpoints
+│   │   │   │   └── utils.ts  # Utility functions
+│   │   │   ├── nsetools.ts   # NSETools integration wrapper
 │   │   │   ├── chittorgarh.ts # Chittorgarh scraper
 │   │   │   ├── groww.ts      # Groww scraper
 │   │   │   ├── investorgain.ts # InvestorGain scraper
@@ -231,13 +236,6 @@ ipo-analyzer/
 ├── shared/                    # Shared types and schemas
 │   ├── schema.ts             # Database schema (Drizzle)
 │   └── models/               # Domain models
-│
-├── nsetools-master/          # NSETools JavaScript library
-│   └── nsetools-js/
-│       └── src/
-│           ├── nse.js        # NSE API client
-│           ├── session.js    # HTTP session manager
-│           └── urls.js       # NSE API endpoints
 │
 └── data/
     └── local.db              # SQLite database file
@@ -307,11 +305,11 @@ The scraping system follows a modular architecture with three main components:
 
 ### Data Sources
 
-#### 1. NSETools (Primary Source)
+#### 1. NSE Client (Primary Source)
 
-**Location:** `nsetools-master/nsetools-js/`
+**Location:** `server/services/scrapers/nse-client/`
 
-NSETools is a JavaScript library that connects to official NSE (National Stock Exchange) APIs. It serves as the primary and most reliable data source.
+The NSE Client is a TypeScript library that connects to official NSE (National Stock Exchange) APIs. It serves as the primary and most reliable data source, fully integrated into the scrapers folder.
 
 **What it provides:**
 - Upcoming IPO calendar
@@ -320,8 +318,8 @@ NSETools is a JavaScript library that connects to official NSE (National Stock E
 - Official NSE endpoints
 
 **How it works:**
-```javascript
-import { Nse } from "./nsetools-master/nsetools-js/src/index.js";
+```typescript
+import { Nse } from "./nse-client";
 const nse = new Nse();
 
 // Fetch upcoming IPOs
@@ -332,9 +330,10 @@ const currentIpos = await nse.getCurrentIpos();
 ```
 
 **Key Files:**
-- `nsetools-master/nsetools-js/src/nse.js` - Main NSE API client
-- `nsetools-master/nsetools-js/src/session.js` - HTTP session manager with cookies
-- `nsetools-master/nsetools-js/src/urls.js` - NSE API endpoint URLs
+- `server/services/scrapers/nse-client/nse.ts` - Main NSE API client
+- `server/services/scrapers/nse-client/session.ts` - HTTP session manager with cookies
+- `server/services/scrapers/nse-client/urls.ts` - NSE API endpoint URLs
+- `server/services/scrapers/nse-client/utils.ts` - Utility functions for data parsing
 
 #### 2. Chittorgarh Scraper
 

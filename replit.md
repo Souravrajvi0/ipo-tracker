@@ -87,3 +87,4 @@ The database schema includes core tables for `users`, `sessions`, `ipos`, `watch
 - **January 2026**: Migrated project structure from subdirectory to root level
 - **January 2026**: Switched from PostgreSQL to SQLite for simpler local development
 - **January 2026**: Updated Vite configuration with `allowedHosts: true` for Replit proxy compatibility
+- **January 2026**: Integrated NSETools library into `server/services/scrapers/nse-client/` (removed separate `nsetools-master/` folder)

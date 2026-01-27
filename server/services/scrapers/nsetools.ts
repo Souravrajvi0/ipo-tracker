@@ -10,8 +10,7 @@ import {
   generateRiskAssessment,
 } from "./base";
 
-// Import NSETools from the monolith
-import { Nse } from "../../../nsetools-master/nsetools-js/src/index.js";
+import { Nse } from "./nse-client";
 
 const nse = new Nse();
 
@@ -174,9 +173,18 @@ export class NseToolsScraper extends BaseScraper {
     };
   }
 
-  /**
-   * Test connection to NSETools
-   */
+  async getIpos(): Promise<ScraperResult<IpoData>> {
+    return this.fetchIpos();
+  }
+
+  async getSubscriptions(): Promise<ScraperResult<SubscriptionData>> {
+    return this.fetchSubscriptions();
+  }
+
+  async getGmp(): Promise<ScraperResult<GmpData>> {
+    return this.fetchGmp();
+  }
+
   async testConnection(): Promise<boolean> {
     try {
       this.log("Testing NSETools connection...");

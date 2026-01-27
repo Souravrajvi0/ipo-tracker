@@ -3,8 +3,7 @@ import * as cheerio from "cheerio";
 import type { InsertIpo } from "@shared/schema";
 import { calculateIpoScore } from "./scoring";
 
-// Import NSETools for primary IPO data source
-import { Nse } from "../../nsetools-master/nsetools-js/src/index.js";
+import { Nse } from "./scrapers/nse-client";
 
 const nse = new Nse();
 
